@@ -65,27 +65,188 @@ const fileNames = {
     'redocly.yml': initRedoclyConfig
 }
 
-const sampleRequestHeaderTemplate = `@operationId@ sample request:
-  summary: '@operationId@ sample request'
-  value:
-    convert json sample to yml then replace this line
-`
-const sampleResponseHeaderTemplate = `@operationId@ sample response:
-  summary: '@operationId@ sample response'
-  value:
-    convert json sample to yml then replace this line
-`
-
 const init = async (runPath, url) => {
-    _log(`Generating redocly project for url: ${url} ...`)
-    // const runPath = process.cwd()
-    createStructure(runPath)
+    _log(`Generating redoc project for url: ${url} ...`)
+    // Check path exists?
+    if (!fs.existsSync(runPath)) {
+        _log(`Path does not exist, init failed`)
+        return
+    }
+
+    // Check folder is empty or not?
+    const files = fs.readdirSync(runPath);
+    if (files.length !== 0) {
+        _log(`Root folder is not empty, init failed`)
+        return
+    }
+
+    // create folders
+    for (let folder of folderNames) {
+        const currentPath = path.join(runPath, folder)
+        fs.mkdirSync(currentPath)
+        _log(`Created folder: ${folder}`)
+    }
+
+    // create files
+    for (const [fileName, content] of Object.entries(fileNames)) {
+        const filePath = path.join(runPath, fileName)
+        fs.writeFileSync(filePath, content)
+        _log(`Created file: ${filePath}`)
+    }
+    _log(`Generated standard folders and files`)
 
     _log(`Generating standard contents ...`)
     await decorateConfigFile(runPath, url)
 
     _log(`Write log...`)
+    _initLog['url'] = url
     fs.writeFileSync(runPath + 'runLog.json', JSON.stringify(_initLog))
+    _log(`Init process is done`)
+}
+
+const update = async (runPath) => {
+    _log(`Updating project...`)
+    let logFilePath = path.join(runPath, 'runLog.json')
+    let isChange = false
+
+    if (!fs.existsSync(logFilePath)) {
+        _log(`Log file not found, update failed`)
+        return
+    }
+    let configFilePath = path.join(runPath, 'redocly.yml')
+    if (!fs.existsSync(configFilePath)) {
+        _log(`redocly.yml file not found, update failed`)
+        return
+    }
+    let assetsFolder = path.join(runPath, 'assets')
+    if (!fs.existsSync(assetsFolder) || !fs.statSync(assetsFolder).isDirectory()) {
+        _log(`Folder assets not found, update failed`)
+        return
+    }
+    let infoFolder = path.join(runPath, 'info')
+    if (!fs.existsSync(infoFolder) || !fs.statSync(infoFolder).isDirectory()) {
+        _log(`Folder info not found, update failed`)
+        return
+    }
+    let infoApiFolder = path.join(runPath, 'info/api')
+    if (!fs.existsSync(infoApiFolder) || !fs.statSync(infoApiFolder).isDirectory()) {
+        _log(`Folder info/api not found, update failed`)
+        return
+    }
+    let samplesRequestFolder = path.join(runPath, 'samples/request')
+    if (!fs.existsSync(samplesRequestFolder) || !fs.statSync(samplesRequestFolder).isDirectory()) {
+        _log(`Folder samples/request not found, update failed`)
+        return
+    }
+    let samplesResponseFolder = path.join(runPath, 'samples/response')
+    if (!fs.existsSync(samplesResponseFolder) || !fs.statSync(samplesResponseFolder).isDirectory()) {
+        _log(`Folder samples/response not found, update failed`)
+        return
+    }
+
+    let genLog = fs.readFileSync(logFilePath, 'utf8')
+    genLog = JSON.parse(genLog)
+    let config = fs.readFileSync(configFilePath, 'utf8')
+    config = yaml.load(config)
+
+    let url = genLog['url']
+    const jsonConfig = await downloadOpenAPIDescriptionFile(url)
+    let apiSpecInfo = parseSpec(jsonConfig)
+
+    _log(`Valid project, check something added from API spec`)
+
+    // Find something added from API specs
+    for (let item of apiSpecInfo) {
+        let id = item['operationId']
+        if (!genLog[id]) {
+            genLog[id] = {}
+            config['decorators']['media-type-examples-override']['operationIds'][id] = {}
+            _log(`Update for new API: ${id} ...`)
+        }
+        if (!genLog[id]['info']) {
+            let infoPath = `info/api/${id}_info.md`
+            fs.writeFileSync(path.join(runPath, infoPath), '')
+            _log(`Created file ${infoPath}`)
+            genLog[id]['info'] = 1
+            config['decorators']['operation-description-override']['operationIds'][id] = infoPath
+            isChange = true
+        }
+        if (!genLog[id]['request'] && item['requestContentType']) {
+            let requestPath = `samples/request/${id}.yml`
+            fs.writeFileSync(path.join(runPath, requestPath), '')
+            _log(`Created file ${requestPath}`)
+            config['decorators']['media-type-examples-override']['operationIds'][id]['request'] = {}
+            config['decorators']['media-type-examples-override']['operationIds'][id]['request'][item['requestContentType']] = requestPath
+            genLog[id]['request'] = 1
+            isChange = true
+        }
+        if (!genLog[id]['responses']) {
+            genLog[id]['responses'] = {}
+            config['decorators']['media-type-examples-override']['operationIds'][id]['responses'] = {}
+        }
+        for (let res of item['responses']) {
+            let status = res['status']
+            let contentType = res['contentType']
+            if (!genLog[id]['responses'][status]) {
+                let responsePath = `samples/response/${id}_${status}.yml`
+                fs.writeFileSync(path.join(runPath, responsePath), '')
+                _log(`Created file ${responsePath}`)
+                config['decorators']['media-type-examples-override']['operationIds'][id]['responses'][status] = {}
+                config['decorators']['media-type-examples-override']['operationIds'][id]['responses'][status][contentType] = responsePath
+                genLog[id]['responses'][status] = 1
+                isChange = true
+            }
+        }
+    }
+
+    _log(`Checking something removed from API spec`)
+    let {removedOperations, changedRequests, changedResponses} = checkChanges(genLog, apiSpecInfo)
+    for (let id of removedOperations) {
+        removeObjectProperty(config, 'decorators.operation-description-override.operationIds.' + id)
+        removeObjectProperty(config, 'decorators.media-type-examples-override.operationIds.' + id)
+        removeObjectProperty(genLog, id)
+
+        let infoPath = `info/api/${id}_info.md`
+        if (fs.existsSync(path.join(runPath, infoPath))) {
+            fs.unlinkSync(path.join(runPath, infoPath))
+            _log(`Deleted file: ${infoPath}`)
+        }
+        let sampleRequestPath = `samples/request/${id}.yml`
+        if (fs.existsSync(path.join(runPath, sampleRequestPath))) {
+            fs.unlinkSync(path.join(runPath, sampleRequestPath))
+            _log(`Deleted file: ${sampleRequestPath}`)
+        }
+        let sampleResponseFolder = `samples/response`
+        let sampleResponseFilePrefixName = `${id}_`
+        await deleteFilesWithPrefix(path.join(runPath, sampleResponseFolder), sampleResponseFilePrefixName, sampleResponseFolder)
+
+        isChange = true
+        _log(`Removed from project API: ${id}`)
+    }
+    for (let id of changedRequests) {
+        let keyPath = `decorators.media-type-examples-override.operationIds.${id}.request`
+        removeObjectProperty(config, keyPath)
+        removeObjectProperty(genLog, `${id}.request`)
+
+        let sampleRequestPath = `samples/request/${id}.yml`
+        if (fs.existsSync(path.join(runPath, sampleRequestPath))) {
+            fs.unlinkSync(path.join(runPath, sampleRequestPath))
+            _log(`Deleted file: ${sampleRequestPath}`)
+        }
+
+        isChange = true
+        _log(`Removed request config for API: ${id}`)
+    }
+
+    if (isChange) {
+        let newContent = yaml.dump(config)
+        fs.writeFileSync(runPath + 'redocly.yml', newContent)
+        _log(`Updated file redocly.yml`)
+        fs.writeFileSync(logFilePath, JSON.stringify(genLog))
+        _log(`Updated file runLog.json`)
+    } else
+        _log(`Nothing changed`)
+    _log(`Update process is done`)
 }
 
 const decorateConfigFile = async (runPath, url) => {
@@ -148,9 +309,7 @@ const decorateConfigFile = async (runPath, url) => {
 
     let newContent = yaml.dump(ymlConfig)
     fs.writeFileSync(runPath + 'redocly.yml', newContent)
-    _log(`
-        ------ Modified redocly config file ------
-    `)
+    _log(`Modified redocly config file`)
 }
 
 const downloadOpenAPIDescriptionFile = (url) => {
@@ -240,114 +399,99 @@ const genSampleAndInfoFiles = (currentPath, apiSpecInfo) => {
         _initLog[id]['info'] = 1
         if (item['requestContentType']) {
             let sampleRequest = sampleBasePath + '/request/' + id + '.yml'
-            // let requestHeader = sampleRequestHeaderTemplate.replace(new RegExp('@operationId@', 'g'), id)
             fs.writeFileSync(sampleRequest, '')
             _initLog[id]['request'] = 1
         }
         for (let res of item['responses']) {
             let sampleResponse = `${sampleBasePath}/response/${id}_${res['status']}.yml`
-            // let responseHeader = sampleResponseHeaderTemplate.replace(new RegExp('@operationId@', 'g'), id)
             fs.writeFileSync(sampleResponse, '')
             _initLog[id]['responses'] = {}
             _initLog[id]['responses'][res['status']] = 1
         }
     }
-    _log(`
-        ------ Generated sample request, response, info files ------
-    `)
+    _log(`Generated sample request, response, info files`)
 }
 
-const getAllOperationIds = (jsonObj) => {
-    const operationIds = [];
-    const stack = [jsonObj];
+// Function to check for changes between the log and OpenAPI specification
+function checkChanges(log, parsedApiSpec) {
+    const removedOperations = [];
+    const changedRequests = [];
+    const changedResponses = [];
 
-    while (stack.length > 0) {
-        const currentObj = stack.pop();
+    // Create a lookup object for the openApiSpec for easier access
+    const openApiLookup = parsedApiSpec.reduce((acc, op) => {
+        acc[op.operationId] = op;
+        return acc;
+    }, {});
 
-        for (const key in currentObj) {
-            const value = currentObj[key];
-            if (typeof value === 'object' && value !== null) {
-                stack.push(value);
-            } else if (key === 'operationId') {
-                operationIds.push(value);
-            }
-        }
-    }
+    for (const operationId in log) {
+        if (log.hasOwnProperty(operationId) && operationId !== 'url') {
+            const logOperation = log[operationId];
+            const openApiOperation = openApiLookup[operationId];
 
-    return operationIds;
-}
+            if (!openApiOperation) {
+                removedOperations.push(operationId);
+            } else {
+                // Check for requestBody
+                if (logOperation.request && !openApiOperation.requestContentType) {
+                    changedRequests.push(operationId);
+                }
 
-const addDecoratorsForMainConfig = (runPath) => {
-    let configContent = fs.readFileSync(runPath + 'redocly.yml', 'utf8');
-    let tmpOperationIds = ['isAuthenticated', 'changeCertPIN', 'resetHsmCertificatePin']
-    const ymlConfig = yaml.load(configContent)
-
-    let _tmpDesc = []
-    let _tmpRequestResponse = []
-    for (let id of tmpOperationIds) {
-        let descValue = 'info/api/' + id + '_info.md'
-        _tmpDesc.push({[id]: descValue})
-        let requestValue = [{'application/json': 'samples/request/' + id + '.yml'}]
-        let responseValue = [{'200': [{'application/json': 'samples/response/' + id + '.yml'}]}]
-        let combination = {'request': requestValue, 'responses': responseValue}
-        _tmpRequestResponse.push({[id]: combination})
-    }
-
-    const stack = [ymlConfig];
-
-    while (stack.length > 0) {
-        const currentObj = stack.pop();
-
-        for (const key in currentObj) {
-            if (currentObj.hasOwnProperty(key)) {
-                const value = currentObj[key];
-                if ((!['operation-description-override', 'media-type-examples-override'].includes(key)) && typeof value === 'object') {
-                    stack.push(value);
-                } else if (key === 'operation-description-override') {
-                    currentObj[key]['operationIds'] = _tmpDesc
-                } else if (key === 'media-type-examples-override') {
-                    currentObj[key]['operationIds'] = _tmpRequestResponse
+                // Check for responses
+                if (logOperation.responses) {
+                    for (const status in logOperation.responses) {
+                        if (logOperation.responses.hasOwnProperty(status)) {
+                            const hasStatusInOpenApi = openApiOperation.responses.some(response => response.status === status);
+                            if (!hasStatusInOpenApi) {
+                                changedResponses.push(operationId);
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    console.log(yaml.dump(ymlConfig))
+    return {removedOperations, changedRequests, changedResponses};
 }
 
-// decorateConfigFile('./test/redocly.yml', 'http://localhost:8080/v3/api-docs').catch()
-// addDecoratorsForMainConfig('./test/')
+function removeObjectProperty(obj, propertyPath) {
+    // Convert the path from a string to an array of parts, using dot as separator
+    const pathParts = propertyPath.split('.');
 
-const createStructure = (basePath) => {
-    // Check path exists?
-    if (!fs.existsSync(basePath)) {
-        _log(`Path does not exist`)
-        return
+    // Store the current object, iterating over each part of the path
+    let currentObj = obj;
+
+    // Iterate through each part of the path, except the last one
+    for (let i = 0; i < pathParts.length - 1; i++) {
+        // Check if this property exists
+        if (!currentObj.hasOwnProperty(pathParts[i])) {
+            // If not, no need to continue
+            return;
+        }
+        // Move to the next child object
+        currentObj = currentObj[pathParts[i]];
     }
 
-    // Check folder is empty or not?
-    const files = fs.readdirSync(basePath);
-    if (files.length !== 0) {
-        _log(`Root folder is not empty`)
-        return
-    }
+    // Delete the last property of the object
+    delete currentObj[pathParts[pathParts.length - 1]];
+}
 
-    // create folders
-    for (let folder of folderNames) {
-        const currentPath = path.join(basePath, folder)
-        fs.mkdirSync(currentPath)
-        _log(`Created folder: ${folder}`)
+// Function to delete files with a specific prefix in a directory
+async function deleteFilesWithPrefix(directoryPath, prefixToDelete, simpleDirectoryPath) {
+    const fsPromises = fs.promises;
+    try {
+        const files = await fsPromises.readdir(directoryPath);
+        for (const file of files) {
+            if (file.startsWith(prefixToDelete)) {
+                const filePath = path.join(directoryPath, file);
+                await fsPromises.unlink(filePath);
+                _log(`Deleted file: ${simpleDirectoryPath}`);
+            }
+        }
+    } catch (err) {
+        _log(err);
     }
-
-    // create files
-    for (const [fileName, content] of Object.entries(fileNames)) {
-        const filePath = path.join(basePath, fileName)
-        fs.writeFileSync(filePath, content)
-        _log(`Created file: ${filePath}`)
-    }
-    _log(`
-        ------ Init project structure done ------
-    `)
 }
 
 const _log = (message) => {
@@ -355,7 +499,6 @@ const _log = (message) => {
 }
 
 module.exports = {
-    createStructure,
     init,
-    downloadOpenAPIDescriptionFile
+    update,
 }
