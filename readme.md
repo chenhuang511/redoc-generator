@@ -92,18 +92,22 @@ At the root directory of the project, run:
 
 # Project structure
 When we ``init`` new project, the following structure will be auto generated:
-   ```yaml
-  assets/
-    img/ 
-  info/
-    api/
-    home.md
-  samples/
-    request/
-    response/
-  README.md
-  redocly.yml
-  runLog.json
+   ```
+project_root
+│   README.md
+│   redocly.yml
+│   runLog.json    
+│
+└───assets
+│   └───img
+│   
+└───info
+|    | home.md
+|    └───api
+|
+└───samples
+|   └───request
+|   └───response   
    ```
 * **assets**: contains images you may add into description files on **info/** and **sample/**
 * **info**: descriptions of all APIs, use markdown for writing. ``home.md`` is just the description of main documentation webpage.
