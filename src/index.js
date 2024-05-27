@@ -53,6 +53,7 @@ let _initLog = {}
 const folderNames = [
     'assets',
     'assets/img',
+    'backup',
     'info',
     'info/api',
     'samples',
@@ -64,6 +65,8 @@ const fileNames = {
     'README.md': '',
     'redocly.yml': initRedoclyConfig
 }
+
+let _backupPath = ''
 
 const init = async (runPath, url) => {
     _log(`Generating redoc project for url: ${url} ...`)
@@ -104,10 +107,12 @@ const init = async (runPath, url) => {
     _log(`Init process is done`)
 }
 
-const update = async (runPath) => {
+const update = async (runPath, noBackup) => {
     _log(`Updating project...`)
     let logFilePath = path.join(runPath, 'runLog.json')
     let isChange = false
+    // By default, the update process go with backup
+    let withBackup = !noBackup
 
     if (!fs.existsSync(logFilePath)) {
         _log(`Log file not found, update failed`)
@@ -201,24 +206,35 @@ const update = async (runPath) => {
 
     _log(`Checking something removed from API spec`)
     let {removedOperations, changedRequests, changedResponses} = checkChanges(genLog, apiSpecInfo)
+
+    // Check if backup is needed, create backup folder
+    _backupPath = path.join(runPath, '/backup')
+    if (!fs.existsSync(_backupPath)) {
+        fs.mkdirSync(_backupPath)
+        _log(`Created backup folder`)
+    }
+
     for (let id of removedOperations) {
         removeObjectProperty(config, 'decorators.operation-description-override.operationIds.' + id)
         removeObjectProperty(config, 'decorators.media-type-examples-override.operationIds.' + id)
         removeObjectProperty(genLog, id)
 
-        let infoPath = `info/api/${id}_info.md`
-        if (fs.existsSync(path.join(runPath, infoPath))) {
-            fs.unlinkSync(path.join(runPath, infoPath))
-            _log(`Deleted file: ${infoPath}`)
+        let infoFile = `info/api/${id}_info.md`
+        let infoPath = path.join(runPath, infoFile)
+        if (fs.existsSync(infoPath)) {
+            deleteFile(infoPath, withBackup)
+            _log(`Deleted file: ${infoFile}`)
         }
-        let sampleRequestPath = `samples/request/${id}.yml`
-        if (fs.existsSync(path.join(runPath, sampleRequestPath))) {
-            fs.unlinkSync(path.join(runPath, sampleRequestPath))
-            _log(`Deleted file: ${sampleRequestPath}`)
+
+        let sampleRequestFile = `samples/request/${id}.yml`
+        let sampleRequestPath = path.join(runPath, sampleRequestFile)
+        if (fs.existsSync(sampleRequestPath)) {
+            deleteFile(sampleRequestPath, withBackup)
+            _log(`Deleted file: ${sampleRequestFile}`)
         }
         let sampleResponseFolder = `samples/response`
         let sampleResponseFilePrefixName = `${id}_`
-        await deleteFilesWithPrefix(path.join(runPath, sampleResponseFolder), sampleResponseFilePrefixName, sampleResponseFolder)
+        deleteFilesWithPrefix(path.join(runPath, sampleResponseFolder), sampleResponseFilePrefixName, sampleResponseFolder)
 
         isChange = true
         _log(`Removed from project API: ${id}`)
@@ -228,10 +244,11 @@ const update = async (runPath) => {
         removeObjectProperty(config, keyPath)
         removeObjectProperty(genLog, `${id}.request`)
 
-        let sampleRequestPath = `samples/request/${id}.yml`
-        if (fs.existsSync(path.join(runPath, sampleRequestPath))) {
-            fs.unlinkSync(path.join(runPath, sampleRequestPath))
-            _log(`Deleted file: ${sampleRequestPath}`)
+        let sampleRequestFile = `samples/request/${id}.yml`
+        let sampleRequestPath = path.join(runPath, sampleRequestFile)
+        if (fs.existsSync(sampleRequestPath)) {
+            deleteFile(sampleRequestPath, withBackup)
+            _log(`Deleted file: ${sampleRequestFile}`)
         }
 
         isChange = true
@@ -242,9 +259,10 @@ const update = async (runPath) => {
         removeObjectProperty(config, keyPath)
         removeObjectProperty(genLog, `${operationId}.responses.${status}`)
 
-        let sampleResponsePath = `samples/response/${operationId}_${status}.yml`
-        if (fs.existsSync(path.join(runPath, sampleResponsePath))) {
-            fs.unlinkSync(path.join(runPath, sampleResponsePath))
+        let sampleResponseFile = `samples/response/${operationId}_${status}.yml`
+        let sampleResponsePath = path.join(runPath, sampleResponseFile)
+        if (fs.existsSync(sampleResponsePath)) {
+            deleteFile(sampleResponsePath, withBackup)
             _log(`Deleted file: ${sampleResponsePath}`)
         }
 
@@ -487,19 +505,40 @@ const removeObjectProperty = (obj, propertyPath) => {
 }
 
 // Function to delete files with a specific prefix in a directory
-const deleteFilesWithPrefix = async (directoryPath, prefixToDelete, simpleDirectoryPath) => {
-    const fsPromises = fs.promises;
-    try {
-        const files = await fsPromises.readdir(directoryPath);
-        for (const file of files) {
-            if (file.startsWith(prefixToDelete)) {
-                const filePath = path.join(directoryPath, file);
-                await fsPromises.unlink(filePath);
-                _log(`Deleted file: ${simpleDirectoryPath}`);
-            }
+const deleteFilesWithPrefix = (directoryPath, prefixToDelete, simpleDirectoryPath, withBackup = false) => {
+    const files = fs.readdirSync(directoryPath);
+    for (const file of files) {
+        if (file.startsWith(prefixToDelete)) {
+            const filePath = path.join(directoryPath, file);
+            deleteFile(filePath, withBackup)
+            _log(`Deleted file: ${simpleDirectoryPath}`);
         }
-    } catch (err) {
-        _log(err);
+    }
+}
+
+// Delete file
+const deleteFile = (sourceFilePath, withBackup = false) => {
+    // calculate timestamp that do the backup work with format: YYYYMMddHHmm
+    const date = new Date();
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() returns 0-11, so need +1
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    let timestamp = `${year}${month}${day}${hours}${minutes}`
+    let backupFileName = `${path.basename(sourceFilePath)}.${timestamp}`
+    let backupFilePath = path.join(_backupPath, backupFileName)
+
+    try {
+        // move file to back up folder
+        fs.copyFileSync(sourceFilePath, backupFilePath)
+
+        // Delete file
+        fs.unlinkSync(sourceFilePath)
+    } catch (e) {
+        _log(e)
     }
 }
 

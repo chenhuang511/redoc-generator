@@ -20,8 +20,10 @@ program.command('init <url>')
 
 program.command('update')
     .description('Update current redoc project')
-    .action(() => {
-        runner.update(process.cwd()).catch(e => console.log(e))
+    .option('--no-backup', 'Backup all unuseful files before remove')
+    .action((options) => {
+        let noBackup = options.noBackup !== undefined
+        runner.update(process.cwd(), noBackup).catch(e => console.log(e))
     })
 
 program.command('version')

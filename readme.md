@@ -88,6 +88,10 @@ At the root directory of the project, run:
    docgen update
    ```
 
+By default, the tool backups all files that will be removed in the update process (files related to removed APIs from specs).
+
+We also can run ``docgen update --no-backup`` (without backup process), but it's not safe.
+
 # Project structure
 When we ``init`` new project, the following structure will be auto generated:
    ```
@@ -98,7 +102,9 @@ project_root
 │
 └───assets
 │   └───img
-│   
+│
+└───backup
+|   
 └───info
 |    | home.md
 |    └───api
@@ -108,6 +114,7 @@ project_root
 |   └───response   
    ```
 * **assets**: contains images you may add into description files on **info/** and **sample/**
+* **backup**: for backup files that are removed in the update process.
 * **info**: descriptions of all APIs, use markdown for writing. ``home.md`` is just the description of main documentation webpage.
 * **samples**: sample requests, responses of each API, use yml for writing.
 * **redocly.yml**: main config file of redocly project.
