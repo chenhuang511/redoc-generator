@@ -10,7 +10,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "chenhuang511",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "commander": "^12.1.0",
     "js-yaml": "^4.1.0"
