@@ -34,7 +34,7 @@ Install:
    ```
 Or checkout the official document from Redocly [here](https://redocly.com/docs/cli/installation/).
 
-# Usage
+# Usage commands
 ## Initialize new project
 At the **empty folder** run following command to init project:
    ```shell
@@ -89,3 +89,70 @@ At the root directory of the project, run:
    ```shell
    docgen update
    ```
+
+# Project structure
+When we ``init`` new project, the following structure will be auto generated:
+   ```yaml
+  assets/
+    img/ 
+  info/
+    api/
+    home.md
+  samples/
+    request/
+    response/
+  README.md
+  redocly.yml
+  runLog.json
+   ```
+* **assets**: contains images you may add into description files on **info/** and **sample/**
+* **info**: descriptions of all APIs, use markdown for writing. ``home.md`` is just the description of main documentation webpage.
+* **samples**: sample requests, responses of each API, use yml for writing.
+* **redocly.yml**: main config file of redocly project.
+* **runLog.json**: init, update logs will be logged here. The update process also need this log file for detecting changes between OpenAPI specs and project generated resources.
+
+## Sample request content
+Imagine you want to add sample ``application/json`` request body for API ``addPet``, like that:
+   ```json
+  {
+      "id": 10,
+      "name": "doggie",
+      "category": {
+         "id": 1,
+         "name": "Dogs"
+      },
+      "photoUrls": [
+         "string"
+      ],
+      "tags": [
+         {
+            "id": 0,
+            "name": "string"
+         }
+      ],
+      "status": "available"
+   }   
+   ```
+then you just add bellow yml content into ``samples/request/addPet.yml`` file:
+   ```yaml
+   Add pet sample request:
+   summary: 'add pet request body sample'
+   value:
+      id: 10
+      name: doggie
+      category:
+         id: 1
+         name: Dogs
+      photoUrls:
+         - string
+      tags:
+         - id: 0
+           name: string
+      status: available
+   ```
+Sample request will be displayed on right panel of the documentation webpage.
+
+> 3 first lines are required for each sample yml file. All things under ``value`` key are the same with above json message.
+
+# License
+MIT
