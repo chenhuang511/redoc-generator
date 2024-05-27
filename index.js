@@ -407,7 +407,7 @@ const genSampleAndInfoFiles = (currentPath, apiSpecInfo) => {
     for (let item of apiSpecInfo) {
         let id = item['operationId']
         _initLog[id] = {}
-        let infoFile = `${currentPath}/info/api/${id}_info.md'`
+        let infoFile = `${currentPath}/info/api/${id}_info.md`
         fs.writeFileSync(infoFile, '')
         _initLog[id]['info'] = 1
         if (item['requestContentType']) {
