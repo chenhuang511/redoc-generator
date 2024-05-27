@@ -1,14 +1,18 @@
 {
-  "name": "14-apidoc-generator",
+  "name": "redoc-project-generator",
   "version": "1.0.0",
   "description": "Redoc project generator, simple configs and samples",
   "main": "index.js",
+  "bin": {
+    "docgen": "./cli.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "chenhuang511",
   "license": "ISC",
   "dependencies": {
+    "commander": "^12.1.0",
     "js-yaml": "^4.1.0"
   }
 }

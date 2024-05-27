@@ -100,7 +100,7 @@ const init = async (runPath, url) => {
 
     _log(`Write log...`)
     _initLog['url'] = url
-    fs.writeFileSync(runPath + 'runLog.json', JSON.stringify(_initLog))
+    fs.writeFileSync(path.join(runPath, 'runLog.json'), JSON.stringify(_initLog))
     _log(`Init process is done`)
 }
 
@@ -254,7 +254,7 @@ const update = async (runPath) => {
 
     if (isChange) {
         let newContent = yaml.dump(config)
-        fs.writeFileSync(runPath + 'redocly.yml', newContent)
+        fs.writeFileSync(path.join(runPath, 'redocly.yml'), newContent)
         _log(`Updated file redocly.yml`)
         fs.writeFileSync(logFilePath, JSON.stringify(genLog))
         _log(`Updated file runLog.json`)
@@ -265,7 +265,7 @@ const update = async (runPath) => {
 
 const decorateConfigFile = async (runPath, url) => {
     // Read init config file
-    let configContent = fs.readFileSync(runPath + 'redocly.yml', 'utf8');
+    let configContent = fs.readFileSync(path.join(runPath, 'redocly.yml'), 'utf8');
 
     // Replace url & load into JS object
     configContent = configContent.replace(new RegExp('changeit_url', 'g'), url)
@@ -322,7 +322,7 @@ const decorateConfigFile = async (runPath, url) => {
     }
 
     let newContent = yaml.dump(ymlConfig)
-    fs.writeFileSync(runPath + 'redocly.yml', newContent)
+    fs.writeFileSync(path.join(runPath, 'redocly.yml'), newContent)
     _log(`Modified redocly config file`)
 }
 
@@ -403,16 +403,15 @@ const parseOpenAPISpec = (openApiSpec) => {
 }
 
 const genSampleAndInfoFiles = (currentPath, apiSpecInfo) => {
-    const infoBasePath = currentPath + '/info/api/'
     const sampleBasePath = currentPath + '/samples/'
     for (let item of apiSpecInfo) {
         let id = item['operationId']
         _initLog[id] = {}
-        let infoFile = infoBasePath + id + '_info.md'
+        let infoFile = `${currentPath}/info/api/${id}_info.md'`
         fs.writeFileSync(infoFile, '')
         _initLog[id]['info'] = 1
         if (item['requestContentType']) {
-            let sampleRequest = sampleBasePath + '/request/' + id + '.yml'
+            let sampleRequest = `${sampleBasePath}/request/${id}.yml`
             fs.writeFileSync(sampleRequest, '')
             _initLog[id]['request'] = 1
         }
