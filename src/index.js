@@ -358,12 +358,10 @@ const downloadOpenAPIDescriptionFile = (url) => {
 const parseOpenAPISpec = (openApiSpec) => {
     const result = [];
 
-    // Duyệt qua tất cả các paths
     for (const path in openApiSpec.paths) {
         if (openApiSpec.paths.hasOwnProperty(path)) {
             const methods = openApiSpec.paths[path];
 
-            // Duyệt qua tất cả các phương thức HTTP
             for (const method in methods) {
                 if (methods.hasOwnProperty(method)) {
                     const operation = methods[method];
@@ -373,12 +371,12 @@ const parseOpenAPISpec = (openApiSpec) => {
                         responses: []
                     };
 
-                    // Nếu có requestBody, thêm requestContentType
+                    // If requestBody exists, add requestContentType
                     if (operation.requestBody && operation.requestBody.content) {
                         entry.requestContentType = Object.keys(operation.requestBody.content)[0];
                     }
 
-                    // Duyệt qua các responses
+                    // Check all responses
                     for (const status in operation.responses) {
                         if (operation.responses.hasOwnProperty(status)) {
                             const response = operation.responses[status];
