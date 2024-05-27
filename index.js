@@ -237,6 +237,20 @@ const update = async (runPath) => {
         isChange = true
         _log(`Removed request config for API: ${id}`)
     }
+    for (let {operationId, status} of changedResponses) {
+        let keyPath = `decorators.media-type-examples-override.operationIds.${operationId}.responses.${status}`
+        removeObjectProperty(config, keyPath)
+        removeObjectProperty(genLog, `${operationId}.responses.${status}`)
+
+        let sampleResponsePath = `samples/response/${operationId}_${status}.yml`
+        if (fs.existsSync(path.join(runPath, sampleResponsePath))) {
+            fs.unlinkSync(path.join(runPath, sampleResponsePath))
+            _log(`Deleted file: ${sampleResponsePath}`)
+        }
+
+        isChange = true
+        _log(`Removed response config for API: ${operationId}, status code: ${status}`)
+    }
 
     if (isChange) {
         let newContent = yaml.dump(config)
@@ -413,7 +427,7 @@ const genSampleAndInfoFiles = (currentPath, apiSpecInfo) => {
 }
 
 // Function to check for changes between the log and OpenAPI specification
-function checkChanges(log, parsedApiSpec) {
+const checkChanges = (log, parsedApiSpec) => {
     const removedOperations = [];
     const changedRequests = [];
     const changedResponses = [];
@@ -443,7 +457,7 @@ function checkChanges(log, parsedApiSpec) {
                         if (logOperation.responses.hasOwnProperty(status)) {
                             const hasStatusInOpenApi = openApiOperation.responses.some(response => response.status === status);
                             if (!hasStatusInOpenApi) {
-                                changedResponses.push(operationId);
+                                changedResponses.push({operationId, status});
                             }
                         }
                     }
@@ -455,7 +469,7 @@ function checkChanges(log, parsedApiSpec) {
     return {removedOperations, changedRequests, changedResponses};
 }
 
-function removeObjectProperty(obj, propertyPath) {
+const removeObjectProperty = (obj, propertyPath) => {
     // Convert the path from a string to an array of parts, using dot as separator
     const pathParts = propertyPath.split('.');
 
@@ -466,10 +480,8 @@ function removeObjectProperty(obj, propertyPath) {
     for (let i = 0; i < pathParts.length - 1; i++) {
         // Check if this property exists
         if (!currentObj.hasOwnProperty(pathParts[i])) {
-            // If not, no need to continue
             return;
         }
-        // Move to the next child object
         currentObj = currentObj[pathParts[i]];
     }
 
@@ -478,7 +490,7 @@ function removeObjectProperty(obj, propertyPath) {
 }
 
 // Function to delete files with a specific prefix in a directory
-async function deleteFilesWithPrefix(directoryPath, prefixToDelete, simpleDirectoryPath) {
+const deleteFilesWithPrefix = async (directoryPath, prefixToDelete, simpleDirectoryPath) => {
     const fsPromises = fs.promises;
     try {
         const files = await fsPromises.readdir(directoryPath);
