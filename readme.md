@@ -15,16 +15,14 @@ Versions tested:
 ![sample page](./sample.png)
 
 # Install
-## From this source code
-1. Clone this source code
-2. At the root directory of the source code, run following command to register CLI with OS:
-    ```shell
-   npm install -g .
-   ```
-3. Check with ``docgen`` command, current version is ``1.0.0``:
-    ```
-    docgen version
-    ``` 
+```shell
+npm i redoc-project-generator
+```
+Check with ``docgen`` command:
+ ```
+ docgen version
+ ``` 
+Or clone project if you wanna customize: [https://github.com/chenhuang511/redoc-generator](https://github.com/chenhuang511/redoc-generator)
 ## Install Redocly CLI
 Redocly is needed for running our project. We can use some another ways to manage, run a Redoc project, but in my context, I use Redocly.
 

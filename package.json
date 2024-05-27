@@ -1,18 +1,39 @@
 {
   "name": "redoc-project-generator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Redoc project generator, simple configs and samples",
-  "main": "index.js",
+  "main": "dist/bundle.js",
   "bin": {
-    "docgen": "./cli.js"
+    "docgen": "src/cli.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack",
+    "start": "node dist/bundle.js",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chenhuang511/redoc-generator"
+  },
+  "keywords": [
+    "cli",
+    "redoc",
+    "openapi",
+    "generator"
+  ],
   "author": "chenhuang511",
   "license": "MIT",
   "dependencies": {
     "commander": "^12.1.0",
     "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.x.x",
+    "@babel/preset-env": "^7.x.x",
+    "babel-loader": "^8.x.x",
+    "node-polyfill-webpack-plugin": "^4.0.0",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
   }
 }

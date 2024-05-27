@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const {program} = require('commander');
-const packageJson = require('./package.json')
+const packageJson = require('../package.json')
 const runner = require('./index')
 
 program
