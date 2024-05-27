@@ -151,7 +151,7 @@ const update = async (runPath) => {
 
     let url = genLog['url']
     const jsonConfig = await downloadOpenAPIDescriptionFile(url)
-    let apiSpecInfo = parseSpec(jsonConfig)
+    let apiSpecInfo = parseOpenAPISpec(jsonConfig)
 
     _log(`Valid project, check something added from API spec`)
 
@@ -273,7 +273,7 @@ const decorateConfigFile = async (runPath, url) => {
 
     // Download OpenAPI json content from url
     const jsonConfig = await downloadOpenAPIDescriptionFile(url)
-    let apiSpecInfo = parseSpec(jsonConfig)
+    let apiSpecInfo = parseOpenAPISpec(jsonConfig)
 
     // Generate sample files
     genSampleAndInfoFiles(runPath, apiSpecInfo)
@@ -355,7 +355,7 @@ const downloadOpenAPIDescriptionFile = (url) => {
     });
 }
 
-const parseSpec = (openApiSpec) => {
+const parseOpenAPISpec = (openApiSpec) => {
     const result = [];
 
     // Duyệt qua tất cả các paths
