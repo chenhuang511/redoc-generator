@@ -16,7 +16,7 @@ Versions tested:
 
 # Install
 ```shell
-npm i redoc-project-generator
+npm i -g redoc-project-generator
 ```
 Check with ``docgen`` command:
  ```
